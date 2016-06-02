@@ -1,0 +1,62 @@
+apply plugin: 'groovy'
+apply plugin: 'maven'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile localGroovy()
+    compile gradleApi()
+    compile 'com.android.tools.build:gradle:2.1.0'
+}
+
+uploadArchives {
+    repositories {
+        mavenDeployer {
+            repository(url: getReleaseRepositoryUrl())
+            snapshotRepository(url: getSnapshotRepositoryUrl())
+
+            pom.project {
+                groupId POM_GROUP_ID
+                artifactId POM_ARTIFACT_ID
+                version POM_VERSION
+                packaging POM_PACKAGING
+                name POM_NAME
+                description POM_DESCRIPTION
+
+                scm {
+                    url POM_SCM_URL
+                    connection POM_SCM_CONNECTION
+                    developerConnection POM_SCM_DEVELOPER_CONNECTION
+                }
+
+                licenses {
+                    license {
+                        name POM_LICENSE_NAME
+                        url POM_LICENSE_URL
+                        distribution POM_LICENSE_DISTRIBUTION
+                    }
+                }
+
+                developers {
+                    developer {
+                        id POM_DEVELOPER_ID
+                        name POM_DEVELOPER_NAME
+                        email POM_DEVELOPER_EMAIL
+                    }
+                }
+            }
+        }
+    }
+}
+
+def getReleaseRepositoryUrl() {
+    return hasProperty('RELEASE_REPOSITORY_URL') ? RELEASE_REPOSITORY_URL
+            : "https://raw.github.com/squirrel-explorer/maven-repository/master"
+}
+
+def getSnapshotRepositoryUrl() {
+    return hasProperty('SNAPSHOT_REPOSITORY_URL') ? SNAPSHOT_REPOSITORY_URL
+            : "https://raw.github.com/squirrel-explorer/maven-repository/master"
+}
