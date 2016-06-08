@@ -1,17 +1,17 @@
 package com.squirrel_explorer.eagleeye.codescanning
 
-import com.android.tools.lint.LintCliFlags
-import com.android.tools.lint.LintCliClient
-import com.android.tools.lint.HtmlReporter
-import com.android.tools.lint.Reporter
-import com.android.tools.lint.TextReporter
-import com.android.tools.lint.XmlReporter
+import com.android.build.gradle.internal.LintGradleClient
+import com.android.builder.model.AndroidProject
+import com.android.builder.model.Variant
+import com.android.tools.lint.*
 import com.android.tools.lint.checks.BuiltinIssueRegistry
 import com.android.tools.lint.client.api.IssueRegistry
-
 import org.gradle.api.DefaultTask
+import org.gradle.api.GradleException
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.TaskAction
+import org.gradle.tooling.GradleConnector
+import org.gradle.tooling.ProjectConnection
 
 /**
  * Task Id : runLint
@@ -28,8 +28,39 @@ public class RunLintTask extends DefaultTask {
     @TaskAction
     public void runLint() {
         IssueRegistry registry = new BuiltinIssueRegistry();
-        LintCliClient client = new LintCliClient();
-        LintCliFlags flags = client.getFlags();
+        LintCliFlags flags = new LintCliFlags();
+
+        GradleConnector gradleConn = GradleConnector.newConnector();
+        gradleConn.forProjectDirectory(project.projectDir);
+        ProjectConnection prjConn = gradleConn.connect();
+        AndroidProject androidProject = prjConn.getModel(AndroidProject.class);
+
+        Collection<Variant> variantList = androidProject.getVariants();
+        if (null == variantList || variantList.isEmpty()) {
+            throw new GradleException('No variant defined.')
+            return;
+        }
+        String targetVariantName = new StringBuilder().append(lint.productFlavor).append(lint.buildType).toString();
+        Variant variant = null;
+        for (int i = 0; i < variantList.size(); i++) {
+            if (variantList.getAt(i).getDisplayName().equalsIgnoreCase(targetVariantName)) {
+                variant = variantList.getAt(i);
+                break;
+            }
+        }
+        if (null == variant) {
+            variant = variantList.getAt(0);
+        }
+
+        LintGradleClient client = new LintGradleClient(
+                registry,
+                flags,
+                project,
+                androidProject,
+                null,
+                variant,
+                null
+        )
 
         // Disable
         Set<String> suppressedIds = flags.getSuppressedIds()

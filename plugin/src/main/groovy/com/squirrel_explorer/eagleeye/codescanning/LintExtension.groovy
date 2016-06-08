@@ -13,6 +13,8 @@ class LintExtension {
     File htmlOutput
     File xmlOutput
     String additionalRuleJars
+    String productFlavor
+    String buildType
 
     public LintExtension(Project project) {
         this.project = project
@@ -113,5 +115,13 @@ class LintExtension {
 
     public void setAdditionalRuleJars(String additionalRuleJars) {
         this.additionalRuleJars = additionalRuleJars
+    }
+
+    public void setProductFlavor(String productFlavor) {
+        this.productFlavor = productFlavor
+    }
+
+    public void setBuildType(String buildType) {
+        this.buildType = buildType
     }
 }
