@@ -29,43 +29,52 @@ public class RunLintTask extends DefaultTask {
     public void runLint() {
         IssueRegistry registry = new BuiltinIssueRegistry();
         LintCliFlags flags = new LintCliFlags();
+        LintCliClient client = null;
 
-        GradleConnector gradleConn = GradleConnector.newConnector();
-        gradleConn.forProjectDirectory(project.projectDir);
-        ProjectConnection prjConn = gradleConn.connect();
-        AndroidProject androidProject = prjConn.getModel(AndroidProject.class);
-
-        Collection<Variant> variantList = androidProject.getVariants();
-        if (null == variantList || variantList.isEmpty()) {
-            throw new GradleException('No variant defined.')
-            return;
-        }
-        String targetVariantName = new StringBuilder().append(lint.productFlavor).append(lint.buildType).toString();
-        Variant variant = null;
-        for (int i = 0; i < variantList.size(); i++) {
-            if (variantList.getAt(i).getDisplayName().equalsIgnoreCase(targetVariantName)) {
-                variant = variantList.getAt(i);
-                break;
+        if (project.plugins.hasPlugin('java')) {
+            client = new LintCliClient(flags, 'java-cli')
+        } else {
+            GradleConnector gradleConn = GradleConnector.newConnector();
+            gradleConn.forProjectDirectory(project.projectDir);
+            ProjectConnection prjConn = gradleConn.connect();
+            AndroidProject androidProject = prjConn.getModel(AndroidProject.class);
+            if (null == androidProject) {
+                throw new GradleException('No valid Android project.')
             }
-        }
-        if (null == variant) {
-            variant = variantList.getAt(0);
-        }
 
-        LintGradleClient client = new LintGradleClient(
-                registry,
-                flags,
-                project,
-                androidProject,
-                null,
-                variant,
-                null
-        )
+            Collection<Variant> variantList = androidProject.getVariants();
+            if (null == variantList || variantList.isEmpty()) {
+                throw new GradleException('No variant defined.')
+            }
+            String targetVariantName = new StringBuilder().append(lint.productFlavor).append(lint.buildType).toString();
+            Variant variant = null;
+            for (int i = 0; i < variantList.size(); i++) {
+                if (variantList.getAt(i).getDisplayName().equalsIgnoreCase(targetVariantName)) {
+                    variant = variantList.getAt(i);
+                    break;
+                }
+            }
+            if (null == variant) {
+                variant = variantList.getAt(0);
+            }
+
+            client = new LintGradleClient(
+                    registry,
+                    flags,
+                    project,
+                    androidProject,
+                    null,
+                    variant,
+                    null
+            )
+        }
 
         // Disable
         Set<String> suppressedIds = flags.getSuppressedIds()
+        if (project.plugins.hasPlugin('java')) {
+            suppressedIds.add('LintError')
+        }
         addIds(suppressedIds, lint.disable)
-        suppressedIds.add('LintError')
 
         // Enable
         addIds(flags.getEnabledIds(), lint.enable)
