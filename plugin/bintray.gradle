@@ -1,0 +1,126 @@
+group = POM_GROUP_ID
+version = POM_SNAPSHOT_VERSION
+project.archivesBaseName = POM_ARTIFACT_ID
+
+apply plugin: 'com.jfrog.bintray'
+apply plugin: 'com.github.dcendents.android-maven'
+
+task sourceJar(type: Jar) {
+    from sourceSets.main.groovy.srcDirs
+    classifier = 'sources'
+}
+
+task groovyDoc(type: Groovydoc) {
+    source = sourceSets.main.groovy.srcDirs
+    classpath = files(configurations.compile)
+}
+
+task groovydocJar(type: Jar, dependsOn: groovyDoc) {
+    classifier = 'groovydoc'
+    from groovyDoc.destinationDir
+}
+
+javadoc {
+    options{
+        encoding 'UTF-8'
+        charSet 'UTF-8'
+        author true
+        version true
+        links "http://docs.oracle.com/javase/7/docs/api"
+        title POM_ARTIFACT_ID
+    }
+}
+
+artifacts {
+    archives sourceJar
+    archives groovydocJar
+}
+
+install {
+    repositories.mavenInstaller {
+        pom.project {
+            groupId POM_GROUP_ID
+            artifactId POM_ARTIFACT_ID
+            version POM_SNAPSHOT_VERSION
+            packaging POM_PACKAGING
+            name POM_NAME
+            description POM_DESCRIPTION
+            url POM_SCM_URL
+
+            scm {
+                url POM_SCM_URL
+                connection POM_SCM_CONNECTION
+                developerConnection POM_SCM_DEVELOPER_CONNECTION
+            }
+
+            licenses {
+                license {
+                    name POM_LICENSE_NAME
+                    url POM_LICENSE_URL
+                    distribution POM_LICENSE_DISTRIBUTION
+                }
+            }
+
+            developers {
+                developer {
+                    id POM_DEVELOPER_ID
+                    name POM_DEVELOPER_NAME
+                    email POM_DEVELOPER_EMAIL
+                }
+            }
+        }
+    }
+}
+
+bintray {
+    user = project.hasProperty('bintray.user') ? project.property('bintray.user') : ''
+    key = project.hasProperty('bintray.apikey') ? project.property('bintray.apikey') : ''
+
+    configurations = ['archives']
+
+    dryRun = false
+    publish = true
+
+    pkg {
+        repo = 'maven'
+        name = POM_ARTIFACT_ID
+        licenses = ['Apache-2.0']
+        vcsUrl = POM_VCS_URL
+        websiteUrl = POM_SCM_URL
+        publicDownloadNumbers = true
+        version {
+            name = POM_SNAPSHOT_VERSION
+            desc = POM_DESCRIPTION
+            vcsTag = POM_SNAPSHOT_VERSION
+
+            gpg {
+                sign = true
+            }
+        }
+    }
+}
+
+apply plugin: 'com.jfrog.artifactory'
+
+artifactory {
+    contextUrl = 'http://oss.jfrog.org/artifactory'
+
+    resolve {
+        repository {
+            repoKey = 'libs-release'
+        }
+    }
+
+    publish {
+        repository {
+            repoKey = 'oss-snapshot-local'
+            username = project.hasProperty('bintray.user') ? project.property('bintray.user') : ''
+            password = project.hasProperty('bintray.apikey') ? project.property('bintray.apikey') : ''
+            maven = true
+        }
+
+        defaults {
+            publishConfigs('archives')
+        }
+    }
+}
