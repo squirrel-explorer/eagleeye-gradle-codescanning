@@ -7,4 +7,5 @@ local.properties
 /build
 /captures
 deploy-local
-deploy-remote
+deploy-snapshot
+deploy-release

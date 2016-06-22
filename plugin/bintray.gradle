@@ -1,5 +1,16 @@
+def pomVersion
+if (project.hasProperty('pubType')) {
+    if ('release' == project.property('pubType')) {
+        pomVersion = POM_RELEASE_VERSION
+    } else if ('snapshot' == project.property('pubType')) {
+        pomVersion = POM_SNAPSHOT_VERSION
+    }
+} else {
+    pomVersion = POM_SNAPSHOT_VERSION
+}
+
 group = POM_GROUP_ID
-version = POM_SNAPSHOT_VERSION
+version = pomVersion
 project.archivesBaseName = POM_ARTIFACT_ID
 
 apply plugin: 'com.jfrog.bintray'
@@ -41,7 +52,7 @@ install {
         pom.project {
             groupId POM_GROUP_ID
             artifactId POM_ARTIFACT_ID
-            version POM_SNAPSHOT_VERSION
+            version pomVersion
             packaging POM_PACKAGING
             name POM_NAME
             description POM_DESCRIPTION
@@ -89,9 +100,9 @@ bintray {
         websiteUrl = POM_SCM_URL
         publicDownloadNumbers = true
         version {
-            name = POM_SNAPSHOT_VERSION
+            name = pomVersion
             desc = POM_DESCRIPTION
-            vcsTag = POM_SNAPSHOT_VERSION
+            vcsTag = pomVersion
 
             gpg {
                 sign = true
