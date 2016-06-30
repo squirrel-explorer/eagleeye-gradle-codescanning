@@ -2,12 +2,13 @@ package com.squirrel_explorer.eagleeye.codescanning
 
 import org.gradle.api.Project
 
-class CodeScanningExtension {
+class CodeScanningExtension extends BaseExtension {
     Project project
 
     LintExtension lint
+    ApiCheckExtension apicheck
 
     public CodeScanningExtension(Project project) {
-        this.project = project
+        super(project)
     }
 }

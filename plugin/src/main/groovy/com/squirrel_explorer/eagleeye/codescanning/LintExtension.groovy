@@ -2,9 +2,7 @@ package com.squirrel_explorer.eagleeye.codescanning
 
 import org.gradle.api.Project
 
-class LintExtension {
-    Project project
-
+class LintExtension extends BaseExtension {
     String disable
     String enable
     String check
@@ -17,7 +15,7 @@ class LintExtension {
     String buildType
 
     public LintExtension(Project project) {
-        this.project = project
+        super(project)
     }
 
     public void setDisable(String disable) {
@@ -37,42 +35,7 @@ class LintExtension {
             if (lintConfig.startsWith('http://') ||
                 lintConfig.startsWith('https://') ||
                 lintConfig.startsWith('ftp://')) {
-                // Local config file
-                String dstFileName = lintConfig.substring(lintConfig.lastIndexOf('/') + 1, lintConfig.length())
-                dstFileName = project.buildDir.absolutePath + File.separator + dstFileName
-                File dstFile = new File(dstFileName)
-                File parentDstFile = dstFile.getParentFile()
-                if (null != parentDstFile) {
-                    if (!parentDstFile.exists()) {
-                        parentDstFile.mkdirs();
-                    }
-                }
-
-                // Remote url
-                InputStream input = null
-                FileOutputStream output = null
-                try {
-                    URL url = new URL(lintConfig)
-                    input = url.openStream()
-                    output = new FileOutputStream(dstFile)
-
-                    byte[] buffer = new byte[1024 * 4]
-                    int count = 0
-                    while ((count = input.read(buffer)) > 0) {
-                        output.write(buffer, 0, count)
-                    }
-
-                    this.lintConfig = dstFile
-                } catch (Exception e) {
-                    this.lintConfig = null
-                } finally {
-                    if (null != output) {
-                        output.close()
-                    }
-                    if (null != input) {
-                        input.close()
-                    }
-                }
+                this.lintConfig = downloadFile(lintConfig, project.buildDir.absolutePath)
             } else {
                 this.lintConfig = new File(lintConfig)
             }

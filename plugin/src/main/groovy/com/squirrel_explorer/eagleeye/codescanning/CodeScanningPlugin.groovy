@@ -10,12 +10,19 @@ class CodeScanningPlugin implements Plugin<Project> {
     void apply(Project project) {
         codeScanning = project.extensions.create("codescanning", CodeScanningExtension, project)
         codeScanning.lint = project.codescanning.extensions.create("lint", LintExtension, project)
+        codeScanning.apicheck = project.codescanning.extensions.create("apicheck", ApiCheckExtension, project)
 
         addRunLintTask(project)
+        addApiCheckTask(project)
     }
 
     private void addRunLintTask(Project project) {
         RunLintTask runLint = project.getTasks().create("runLint", RunLintTask.class);
         runLint.setLintConfiguration(codeScanning.lint)
+    }
+
+    private void addApiCheckTask(Project project) {
+        ApiCheckTask apiCheck = project.getTasks().create("apiCheck", ApiCheckTask.class);
+        apiCheck.setApiCheckConfiguration(codeScanning.apicheck)
     }
 }
