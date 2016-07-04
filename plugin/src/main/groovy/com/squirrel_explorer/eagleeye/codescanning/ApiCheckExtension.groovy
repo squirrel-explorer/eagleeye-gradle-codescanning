@@ -12,6 +12,7 @@ class ApiCheckExtension extends BaseExtension {
     File textOutput
     File htmlOutput
     File xmlOutput
+    String apicheckRuleJar
     String productFlavor
     String buildType
 
@@ -46,11 +47,11 @@ class ApiCheckExtension extends BaseExtension {
             BufferedReader br = null
             try {
                 fr = new FileReader(apiCheckConfig)
-                br = new BufferedReader(fr);
+                br = new BufferedReader(fr)
 
                 String str = null
                 while (null != (str = br.readLine())) {
-                    apiCheckList.add(str);
+                    apiCheckList.add(str)
                 }
             } catch (Exception e) {
                 // TODO
@@ -152,6 +153,10 @@ class ApiCheckExtension extends BaseExtension {
 
     public void setXmlOutput(File xmlOutput) {
         this.xmlOutput = xmlOutput
+    }
+
+    public void setApicheckRuleJar(String apicheckRuleJar) {
+        this.apicheckRuleJar = apicheckRuleJar
     }
 
     public void setProductFlavor(String productFlavor) {

@@ -8,21 +8,17 @@ import org.gradle.api.tasks.TaskAction
  */
 public class RunLintTask extends BaseLintTask {
     @Input
-    private LintExtension lint;
+    private LintExtension lint
 
     public void setLintConfiguration(LintExtension lint) {
-        this.lint = lint;
-        this.textOutput = lint.textOutput
-        this.htmlOutput = lint.htmlOutput
-        this.xmlOutput = lint.xmlOutput
+        this.lint = lint
+
         this.defaultOutput = project.buildDir.absolutePath + '/outputs/lint-results.html'
-        this.productFlavor = lint.productFlavor
-        this.buildType = lint.buildType
     }
 
     @TaskAction
     public void runLint() {
-        initialize()
+        initialize(lint.productFlavor, lint.buildType)
 
         // Disable
         Set<String> suppressedIds = flags.getSuppressedIds()
@@ -41,6 +37,10 @@ public class RunLintTask extends BaseLintTask {
         if (null != lint.lintConfig) {
             flags.setDefaultConfiguration(lint.lintConfig)
         }
+
+        addReporters(lint.textOutput, lint.htmlOutput, lint.xmlOutput)
+
+        addCustomRules(lint.customRuleJars)
 
         scan()
     }

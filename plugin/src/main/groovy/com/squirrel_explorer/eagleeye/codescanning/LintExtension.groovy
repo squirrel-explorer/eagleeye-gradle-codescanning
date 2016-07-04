@@ -10,7 +10,7 @@ class LintExtension extends BaseExtension {
     File textOutput
     File htmlOutput
     File xmlOutput
-    String additionalRuleJars
+    String customRuleJars
     String productFlavor
     String buildType
 
@@ -76,8 +76,8 @@ class LintExtension extends BaseExtension {
         this.xmlOutput = xmlOutput
     }
 
-    public void setAdditionalRuleJars(String additionalRuleJars) {
-        this.additionalRuleJars = additionalRuleJars
+    public void setCustomRuleJars(String customRuleJars) {
+        this.customRuleJars = customRuleJars
     }
 
     public void setProductFlavor(String productFlavor) {

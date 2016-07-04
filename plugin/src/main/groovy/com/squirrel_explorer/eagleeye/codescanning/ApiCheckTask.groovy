@@ -9,24 +9,24 @@ import org.gradle.api.tasks.TaskAction
  */
 public class ApiCheckTask extends BaseLintTask {
     @Input
-    private ApiCheckExtension apicheck;
+    private ApiCheckExtension apicheck
 
     public void setApiCheckConfiguration(ApiCheckExtension apicheck) {
-        this.apicheck = apicheck;
-        this.textOutput = apicheck.textOutput
-        this.htmlOutput = apicheck.htmlOutput
-        this.xmlOutput = apicheck.xmlOutput
+        this.apicheck = apicheck
+
         this.defaultOutput = project.buildDir.absolutePath + '/outputs/apicheck-results.html'
-        this.productFlavor = apicheck.productFlavor
-        this.buildType = apicheck.buildType
     }
 
     @TaskAction
     public void apiCheck() {
-        initialize()
+        initialize(apicheck.productFlavor, apicheck.buildType)
 
         // Check
         flags.setExactCheckedIds(createIdSet('MissingApiChecker'))
+
+        addReporters(apicheck.textOutput, apicheck.htmlOutput, apicheck.xmlOutput)
+
+        addCustomRules(apicheck.apicheckRuleJar)
 
         scan()
     }

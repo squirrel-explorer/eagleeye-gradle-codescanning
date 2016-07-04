@@ -22,7 +22,7 @@ class BaseExtension {
             File parentDstFile = dstFile.getParentFile()
             if (null != parentDstFile) {
                 if (!parentDstFile.exists()) {
-                    parentDstFile.mkdirs();
+                    parentDstFile.mkdirs()
                 }
             }
 
