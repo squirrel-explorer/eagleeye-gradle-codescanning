@@ -4,7 +4,7 @@ apply from: 'bintray.gradle'
 dependencies {
     compile localGroovy()
     compile gradleApi()
-    compile 'com.android.tools.build:gradle:2.1.2'
+    compile 'com.android.tools.build:gradle:1.1.0'
     compile 'com.android.tools.lint:lint-api:25.0.0'
 }
 
