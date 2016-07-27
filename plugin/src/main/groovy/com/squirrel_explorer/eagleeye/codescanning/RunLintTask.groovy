@@ -2,6 +2,7 @@ package com.squirrel_explorer.eagleeye.codescanning
 
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.TaskAction
+
 /**
  * Task Id : runLint
  * Content : Run Android lint

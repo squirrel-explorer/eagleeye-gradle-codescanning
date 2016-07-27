@@ -1,5 +1,6 @@
 package com.squirrel_explorer.eagleeye.codescanning
 
+import com.squirrel_explorer.eagleeye.codescanning.utils.FileUtils
 import org.gradle.api.Project
 
 class LintExtension extends BaseExtension {
@@ -35,7 +36,7 @@ class LintExtension extends BaseExtension {
             if (lintConfig.startsWith('http://') ||
                 lintConfig.startsWith('https://') ||
                 lintConfig.startsWith('ftp://')) {
-                this.lintConfig = downloadFile(lintConfig, project.buildDir.absolutePath)
+                this.lintConfig = FileUtils.downloadFile(lintConfig, project.buildDir.absolutePath)
             } else {
                 this.lintConfig = new File(lintConfig)
             }
@@ -47,9 +48,7 @@ class LintExtension extends BaseExtension {
     }
 
     public void setTextOutput(String textOutput) {
-        if (null != textOutput && textOutput.length() > 0) {
-            this.textOutput = new File(textOutput)
-        }
+        this.textOutput = FileUtils.safeCreateFile(textOutput)
     }
 
     public void setTextOutput(File textOutput) {
@@ -57,9 +56,7 @@ class LintExtension extends BaseExtension {
     }
 
     public void setHtmlOutput(String htmlOutput) {
-        if (null != htmlOutput && htmlOutput.length() > 0) {
-            this.htmlOutput = new File(htmlOutput)
-        }
+        this.htmlOutput = FileUtils.safeCreateFile(htmlOutput)
     }
 
     public void setHtmlOutput(File htmlOutput) {
@@ -67,9 +64,7 @@ class LintExtension extends BaseExtension {
     }
 
     public void setXmlOutput(String xmlOutput) {
-        if (null != xmlOutput && xmlOutput.length() > 0) {
-            this.xmlOutput = new File(xmlOutput)
-        }
+        this.xmlOutput = FileUtils.safeCreateFile(xmlOutput)
     }
 
     public void setXmlOutput(File xmlOutput) {

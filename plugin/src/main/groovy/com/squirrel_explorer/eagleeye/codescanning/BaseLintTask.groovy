@@ -5,6 +5,7 @@ import com.android.builder.model.Variant
 import com.android.tools.lint.*
 import com.android.tools.lint.checks.BuiltinIssueRegistry
 import com.android.tools.lint.client.api.IssueRegistry
+import com.squirrel_explorer.eagleeye.codescanning.utils.FileUtils
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.tooling.GradleConnector
@@ -209,15 +210,11 @@ public abstract class BaseLintTask extends DefaultTask {
             needDefaultReporter = false
         }
         if (needDefaultReporter) {
-            File htmlReport = new File(defaultOutput)
-            File htmlReportParent = htmlReport.getParentFile()
-            if (null != htmlReportParent) {
-                if (!htmlReportParent.exists()) {
-                    htmlReportParent.mkdirs()
-                }
+            File htmlReport = FileUtils.safeCreateFile(defaultOutput)
+            if (null != htmlReport) {
+                reporter = new HtmlReporter(client, htmlReport)
+                reporters.add(reporter)
             }
-            reporter = new HtmlReporter(client, htmlReport)
-            reporters.add(reporter)
         }
     }
 

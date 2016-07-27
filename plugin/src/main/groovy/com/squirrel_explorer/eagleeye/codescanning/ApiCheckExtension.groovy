@@ -1,5 +1,6 @@
 package com.squirrel_explorer.eagleeye.codescanning
 
+import com.squirrel_explorer.eagleeye.codescanning.utils.FileUtils
 import org.gradle.api.Project
 
 import java.security.DigestInputStream
@@ -25,7 +26,7 @@ class ApiCheckExtension extends BaseExtension {
             if (apiCheckConfig.startsWith('http://') ||
                     apiCheckConfig.startsWith('https://') ||
                     apiCheckConfig.startsWith('ftp://')) {
-                this.apiCheckConfig = downloadFile(apiCheckConfig, project.buildDir.absolutePath)
+                this.apiCheckConfig = FileUtils.downloadFile(apiCheckConfig, project.buildDir.absolutePath)
             } else {
                 this.apiCheckConfig = new File(apiCheckConfig)
             }
@@ -88,7 +89,7 @@ class ApiCheckExtension extends BaseExtension {
                             fileUrl.substring(fileUrl.lastIndexOf('/') + 1, fileUrl.length()))
 
                     if (!file.exists()) {
-                        downloadFile(fileUrl, localDir)
+                        FileUtils.downloadFile(fileUrl, localDir)
                     } else {
                         try {
                             md5 = MessageDigest.getInstance("MD5")
@@ -109,7 +110,7 @@ class ApiCheckExtension extends BaseExtension {
                         }
 
                         if (!apiCheckMd5List.get(i).equals(checksum)) {
-                            downloadFile(fileUrl, localDir)
+                            FileUtils.downloadFile(fileUrl, localDir)
                         }
                     }
                 }
@@ -126,9 +127,7 @@ class ApiCheckExtension extends BaseExtension {
     }
 
     public void setTextOutput(String textOutput) {
-        if (null != textOutput && textOutput.length() > 0) {
-            this.textOutput = new File(textOutput)
-        }
+        this.textOutput = FileUtils.safeCreateFile(textOutput)
     }
 
     public void setTextOutput(File textOutput) {
@@ -136,9 +135,7 @@ class ApiCheckExtension extends BaseExtension {
     }
 
     public void setHtmlOutput(String htmlOutput) {
-        if (null != htmlOutput && htmlOutput.length() > 0) {
-            this.htmlOutput = new File(htmlOutput)
-        }
+        this.htmlOutput = FileUtils.safeCreateFile(htmlOutput)
     }
 
     public void setHtmlOutput(File htmlOutput) {
@@ -146,9 +143,7 @@ class ApiCheckExtension extends BaseExtension {
     }
 
     public void setXmlOutput(String xmlOutput) {
-        if (null != xmlOutput && xmlOutput.length() > 0) {
-            this.xmlOutput = new File(xmlOutput)
-        }
+        this.xmlOutput = FileUtils.safeCreateFile(xmlOutput)
     }
 
     public void setXmlOutput(File xmlOutput) {
