@@ -64,6 +64,11 @@ install {
                 developerConnection POM_SCM_DEVELOPER_CONNECTION
             }
 
+            issueManagement {
+                system POM_ISSUE_SYSTEM
+                url POM_ISSUE_URL
+            }
+
             licenses {
                 license {
                     name POM_LICENSE_NAME
@@ -98,6 +103,7 @@ bintray {
         licenses = ['Apache-2.0']
         vcsUrl = POM_VCS_URL
         websiteUrl = POM_SCM_URL
+        issueTrackerUrl = POM_ISSUE_URL
         publicDownloadNumbers = true
         version {
             name = pomVersion

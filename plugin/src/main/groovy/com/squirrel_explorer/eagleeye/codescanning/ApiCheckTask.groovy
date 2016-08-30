@@ -21,12 +21,12 @@ public class ApiCheckTask extends BaseLintTask {
     public void apiCheck() {
         initialize(apicheck.productFlavor, apicheck.buildType)
 
-        // Check
+        // 只需检查MissingApiChecker这一个规则
         flags.setExactCheckedIds(createIdSet('MissingApiChecker'))
 
         addReporters(apicheck.textOutput, apicheck.htmlOutput, apicheck.xmlOutput)
 
-        addCustomRules(apicheck.apicheckRuleJar)
+        addCustomRules(apicheck.apicheckRules)
 
         scan()
     }

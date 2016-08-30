@@ -8,6 +8,8 @@ import com.android.tools.lint.client.api.IssueRegistry
 import com.squirrel_explorer.eagleeye.codescanning.utils.FileUtils
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
+import org.gradle.api.artifacts.Configuration
+import org.gradle.api.artifacts.ModuleVersionIdentifier
 import org.gradle.tooling.GradleConnector
 import org.gradle.tooling.ProjectConnection
 
@@ -32,9 +34,10 @@ public abstract class BaseLintTask extends DefaultTask {
         flags = new LintCliFlags()
         client = null
 
+        // 对于使用java plugin但实际上却是Android工程的项目,只能直接用LintCliClient
         if (project.plugins.hasPlugin('java')) {
             client = new LintCliClient(flags, 'java-cli')
-        } else {
+        } else {    // 对于使用android plugin的Android工程,使用LintGradleClient
             client = createLintGradleClient(productFlavor, buildType)
             if (null == client) {
                 throw new GradleException('No proper constructor of \'com.android.build.gradle.internal.LintGradleClient\' is declared')
@@ -42,6 +45,7 @@ public abstract class BaseLintTask extends DefaultTask {
         }
     }
 
+    // Gradle插件中LintGradleClient的构造函数signature(不同版本的构造函数是不一样的)
     // 2.0.0 - latest
     private static final String SIGNATURE_2_0_0 = '[class com.android.tools.lint.client.api.IssueRegistry, class com.android.tools.lint.LintCliFlags, interface org.gradle.api.Project, interface com.android.builder.model.AndroidProject, class java.io.File, interface com.android.builder.model.Variant, class com.android.sdklib.BuildToolInfo]'
     // 1.5.0
@@ -218,27 +222,78 @@ public abstract class BaseLintTask extends DefaultTask {
         }
     }
 
-    protected void addCustomRules(String customRuleJars) {
-        if (null == customRuleJars || customRuleJars.isEmpty()) {
+    /**
+     * 解析Gradle配置里的eagleeye依赖,那些是eagleeye plugin的自定义规则库依赖,形如:
+     * build.gradle :
+     * configurations {
+     *     eagleeye
+     * }
+     *
+     * dependencies {
+     *     eagleeye 'com.squirrel-explorer.eagleeye:lint_rules_allinone:1.0.1'
+     * }
+     *
+     * @return  自定义规则库Jar包在本地maven仓库里的路径
+     */
+    private ArrayList<String> parseCustomRulesFromDep() {
+        // 自定义configuration名称必须是'eagleeye'
+        if (null == project.configurations.findByName('eagleeye')) {
+            return null
+        }
+
+        // 获取dependencies里'eagleeye'配置的依赖
+        HashSet<String> depSet = new HashSet<String>()
+        Configuration configuration = project.configurations.getByName('eagleeye')
+        configuration.dependencies.each { dependency ->
+            depSet.add(dependency.group + dependency.name)
+        }
+        if (depSet.isEmpty()) {
+            return null
+        }
+
+        // 从已解析好的依赖中找到'eagleeye'的,获取其在本地maven仓库中的路径
+        ArrayList<String> customRulesFromDep = new ArrayList<String>()
+        configuration.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+            ModuleVersionIdentifier moduleVersionId = artifact.moduleVersion.id
+            if (depSet.contains(moduleVersionId.group + moduleVersionId.name)) {
+                customRulesFromDep.add(artifact.file.absolutePath)
+            }
+        }
+
+        return customRulesFromDep.isEmpty() ? null : customRulesFromDep
+    }
+
+    protected void addCustomRules(ArrayList<String> customRules) {
+        // 合并用户通过在codescanning->lint closure和dependencies两处设置的自定义规则库Jar包列表
+        ArrayList<String> combinedCustomRules = new ArrayList<String>()
+        ArrayList<String> customRulesFromDep = parseCustomRulesFromDep()
+        if (null != customRulesFromDep) {
+            combinedCustomRules.addAll(customRulesFromDep)
+        }
+        if (null != customRules) {
+            combinedCustomRules.addAll(customRules)
+        }
+        if (combinedCustomRules.isEmpty()) {
             return
         }
 
-        // Generate lint class paths
+        // 提取用户已经在ANDROID_LINT_JARS环境变量中预设置的自定义规则库Jar包列表
         HashSet<String> lintClassPaths = new HashSet<>()
         String lintClassPath = System.getenv('ANDROID_LINT_JARS')
         if (null != lintClassPath && !lintClassPath.isEmpty()) {
             lintClassPaths.addAll(lintClassPath.split(File.pathSeparator))
         }
 
+        // 将新设置的和已有的合并
         StringBuilder sb = new StringBuilder()
-        String[] customRuleJarList = customRuleJars.split(SEPARATOR)
-        for (String ruleJar : customRuleJarList) {
+        for (String ruleJar : combinedCustomRules) {
             if (ruleJar.endsWith('.jar') && !lintClassPaths.contains(ruleJar)) {
                 sb.append(ruleJar).append(File.pathSeparator)
             }
         }
 
         if (sb.length() > 0) {
+            // 去掉待设置环境变量字符串首尾的':'
             if (null != lintClassPath && !lintClassPath.isEmpty()) {
                 lintClassPath += File.pathSeparator + sb.toString()
             } else {

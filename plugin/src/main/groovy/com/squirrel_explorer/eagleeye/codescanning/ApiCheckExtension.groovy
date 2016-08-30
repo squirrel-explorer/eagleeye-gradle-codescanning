@@ -7,15 +7,15 @@ import java.security.DigestInputStream
 import java.security.MessageDigest
 
 class ApiCheckExtension extends BaseExtension {
-    File apiCheckConfig
-    boolean hideApi = true
-    boolean removedApi = true
-    File textOutput
-    File htmlOutput
-    File xmlOutput
-    String apicheckRuleJar
-    String productFlavor
-    String buildType
+    File apiCheckConfig         // Missing API检查的配置文件(包括hide API & removed API)
+    boolean hideApi = true      // 检查hide API
+    boolean removedApi = true   // 检查removed API
+    File textOutput             // TextReporter
+    File htmlOutput             // HtmlReporter
+    File xmlOutput              // XmlReporter
+    ArrayList<String> apicheckRules = new ArrayList<String>()   // 自定义规则库Jar包列表
+    String productFlavor        // productFlavor in build.gradle
+    String buildType            // buildType in build.gradle
 
     public ApiCheckExtension(Project project) {
         super(project)
@@ -39,11 +39,26 @@ class ApiCheckExtension extends BaseExtension {
         downloadApiCheckConfig()
     }
 
+    /**
+     * 下载Missing API Check配置文件里真正对应各版本hide/removed API信息的文件
+     * 该配置文件格式形如:
+     * <hide methods apilevel 15>
+     * <hashcode>
+     * <hide methods apilevel 16>
+     * <hashcode>
+     * ......
+     * <removed methods apilevel 15>
+     * <hashcode>
+     * <removed methods apilevel 16>
+     * <hashcode>
+     * ......
+     */
     private void downloadApiCheckConfig() {
         if (null != apiCheckConfig) {
-            ArrayList<String> apiCheckList = new ArrayList<>()
-            ArrayList<String> apiCheckMd5List = new ArrayList<>()
+            ArrayList<String> apiCheckList = new ArrayList<String>()
+            ArrayList<String> apiCheckMd5List = new ArrayList<String>()
 
+            // 解析配置文件内容,按行保存在apiCheckList中(包含各版本hide/removed API信息的文件及其md5)
             FileReader fr = null
             BufferedReader br = null
             try {
@@ -68,6 +83,9 @@ class ApiCheckExtension extends BaseExtension {
             }
 
             if (!apiCheckList.isEmpty() && (0 == apiCheckList.size() % 2)) {
+                // 将各版本hide/removed API信息的文件及其md5分离
+                // 奇数行:文件
+                // 偶数行:文件md5
                 int i
                 for (i = 1; i < apiCheckList.size(); i += 2) {
                     apiCheckMd5List.add(apiCheckList.get(i))
@@ -89,8 +107,11 @@ class ApiCheckExtension extends BaseExtension {
                             fileUrl.substring(fileUrl.lastIndexOf('/') + 1, fileUrl.length()))
 
                     if (!file.exists()) {
+                        // 如果API信息文件还未下载,则直接下载
                         FileUtils.downloadFile(fileUrl, localDir)
                     } else {
+                        // 如果API信息文件已下载过,则先对本地文件取md5,再与配置文件里的md5做比较,
+                        // 如果不一致则说明有更新,需重新下载
                         try {
                             md5 = MessageDigest.getInstance("MD5")
                             input = new FileInputStream(file)
@@ -150,8 +171,20 @@ class ApiCheckExtension extends BaseExtension {
         this.xmlOutput = xmlOutput
     }
 
-    public void setApicheckRuleJar(String apicheckRuleJar) {
-        this.apicheckRuleJar = apicheckRuleJar
+    public void setApicheckRuleJar(String apicheckRule) {
+        if (null != apicheckRule && apicheckRule.length() > 0) {
+            String downloadDir = project.projectDir.absolutePath + '/lint-jars'
+            if (apicheckRule.startsWith('http://') ||
+                    apicheckRule.startsWith('https://') ||
+                    apicheckRule.startsWith('ftp://')) {
+                File customRuleFile = FileUtils.downloadFile(apicheckRule, downloadDir)
+                if (null != customRuleFile) {
+                    this.apicheckRules.add(customRuleFile.absolutePath)
+                }
+            } else {
+                this.apicheckRules.add(apicheckRule)
+            }
+        }
     }
 
     public void setProductFlavor(String productFlavor) {

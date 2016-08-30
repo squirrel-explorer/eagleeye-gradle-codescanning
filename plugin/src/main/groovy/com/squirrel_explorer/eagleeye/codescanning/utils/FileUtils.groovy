@@ -1,4 +1,4 @@
-package com.squirrel_explorer.eagleeye.codescanning.utils;
+package com.squirrel_explorer.eagleeye.codescanning.utils
 
 /**
  * Created by squirrel-explorer on 16/7/27.

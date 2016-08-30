@@ -23,6 +23,7 @@ public class RunLintTask extends BaseLintTask {
 
         // Disable
         Set<String> suppressedIds = flags.getSuppressedIds()
+        // 此处对使用java plugin但实际上却是Android工程的项目做了兼容,去除不影响实际扫描结果的LintError
         if (project.plugins.hasPlugin('java')) {
             suppressedIds.add('LintError')
         }
@@ -41,7 +42,7 @@ public class RunLintTask extends BaseLintTask {
 
         addReporters(lint.textOutput, lint.htmlOutput, lint.xmlOutput)
 
-        addCustomRules(lint.customRuleJars)
+        addCustomRules(lint.customRules)
 
         scan()
     }
