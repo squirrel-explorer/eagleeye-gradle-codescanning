@@ -7,12 +7,12 @@ import com.android.tools.lint.checks.BuiltinIssueRegistry
 import com.android.tools.lint.client.api.IssueRegistry
 import com.squirrel_explorer.eagleeye.codescanning.AbstractScanTask
 import com.squirrel_explorer.eagleeye.codescanning.utils.FileUtils
-import org.gradle.api.GradleException
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.ModuleVersionIdentifier
 import org.gradle.tooling.GradleConnector
 
 import java.lang.reflect.Constructor
+
 /**
  * Task Id : N/A
  * Content : Base class for Lint task
@@ -28,9 +28,6 @@ public abstract class BaseLintTask extends AbstractScanTask {
 
         // 只支持Android工程，即com.android.application和com.android.library
         client = createLintGradleClient(productFlavor, buildType)
-        if (null == client) {
-            throw new GradleException('No proper constructor of \'com.android.build.gradle.internal.LintGradleClient\' is declared')
-        }
     }
 
     // Gradle插件中LintGradleClient的构造函数signature(不同版本的构造函数是不一样的)
