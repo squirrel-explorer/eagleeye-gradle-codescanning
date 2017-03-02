@@ -1,47 +1,35 @@
-package com.squirrel_explorer.eagleeye.codescanning
+package com.squirrel_explorer.eagleeye.codescanning.lint
 
 import com.android.builder.model.AndroidProject
 import com.android.builder.model.Variant
 import com.android.tools.lint.*
 import com.android.tools.lint.checks.BuiltinIssueRegistry
 import com.android.tools.lint.client.api.IssueRegistry
+import com.squirrel_explorer.eagleeye.codescanning.AbstractScanTask
 import com.squirrel_explorer.eagleeye.codescanning.utils.FileUtils
-import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.ModuleVersionIdentifier
 import org.gradle.tooling.GradleConnector
-import org.gradle.tooling.ProjectConnection
 
 import java.lang.reflect.Constructor
-import java.lang.reflect.Field
-
 /**
  * Task Id : N/A
  * Content : Base class for Lint task
  */
-public abstract class BaseLintTask extends DefaultTask {
+public abstract class BaseLintTask extends AbstractScanTask {
     protected IssueRegistry registry
     protected LintCliFlags flags
     protected LintCliClient client
 
-    protected String defaultOutput
-
-    private static final String SEPARATOR = ','
-
     public void initialize(String productFlavor, String buildType) {
         registry = new BuiltinIssueRegistry()
         flags = new LintCliFlags()
-        client = null
 
-        // 对于使用java plugin但实际上却是Android工程的项目,只能直接用LintCliClient
-        if (project.plugins.hasPlugin('java')) {
-            client = new LintCliClient(flags, 'java-cli')
-        } else {    // 对于使用android plugin的Android工程,使用LintGradleClient
-            client = createLintGradleClient(productFlavor, buildType)
-            if (null == client) {
-                throw new GradleException('No proper constructor of \'com.android.build.gradle.internal.LintGradleClient\' is declared')
-            }
+        // 只支持Android工程，即com.android.application和com.android.library
+        client = createLintGradleClient(productFlavor, buildType)
+        if (null == client) {
+            throw new GradleException('No proper constructor of \'com.android.build.gradle.internal.LintGradleClient\' is declared')
         }
     }
 
@@ -56,15 +44,20 @@ public abstract class BaseLintTask extends DefaultTask {
     private LintCliClient createLintGradleClient(String productFlavor, String buildType) {
         GradleConnector gradleConn = GradleConnector.newConnector()
         gradleConn.forProjectDirectory(project.projectDir)
-        ProjectConnection prjConn = gradleConn.connect()
-        AndroidProject androidProject = prjConn.getModel(AndroidProject.class)
+        AndroidProject androidProject = null
+        try {
+            androidProject = gradleConn.connect().getModel(AndroidProject.class)
+        } catch (Exception e) {
+            // Not an Android project or Android project configured incorrectly
+            return null
+        }
         if (null == androidProject) {
-            throw new GradleException('No valid Android project.')
+            return null
         }
 
         Collection<Variant> variantList = androidProject.getVariants()
         if (null == variantList || variantList.isEmpty()) {
-            throw new GradleException('No variant defined.')
+            return null
         }
         String targetVariantName = new StringBuilder().append(productFlavor).append(buildType).toString()
         Variant variant = null
@@ -318,66 +311,6 @@ public abstract class BaseLintTask extends DefaultTask {
         try {
             if (null != client) {
                 client.run(registry, srcDirs)
-            }
-        } catch (Exception e) {
-            e.printStackTrace()
-        }
-    }
-
-    protected void addIds(Set<String> ids, String idList) {
-        if (null == ids || null == idList || 0 == idList.length()) {
-            return
-        }
-
-        for (String id : idList.split(SEPARATOR)) {
-            if (null == id) {
-                continue
-            }
-
-            id = id.trim()
-            if (0 == id.length()) {
-                continue
-            }
-
-            ids.add(id)
-        }
-    }
-
-    protected Set<String> createIdSet(String idList) {
-        if (null == idList || idList.isEmpty()) {
-            return null
-        }
-
-        HashSet<String> ids = new HashSet<>()
-        for (String id : idList.split(SEPARATOR)) {
-            if (null == id) {
-                continue
-            }
-
-            id = id.trim()
-            if (0 == id.length()) {
-                continue
-            }
-
-            ids.add(id)
-        }
-
-        return ids.isEmpty() ? null : ids
-    }
-
-    protected void setenv(String key, String value) {
-        try {
-            Class[] classes = Collections.class.getDeclaredClasses()
-            Map<String, String> env = System.getenv()
-            for (Class cl : classes) {
-                if ('java.util.Collections$UnmodifiableMap'.equals(cl.getName())) {
-                    Field field = cl.getDeclaredField('m')
-                    field.setAccessible(true)
-                    Object obj = field.get(env)
-                    Map<String, String> map = (Map<String, String>)obj
-                    map.put(key, value)
-                    break
-                }
             }
         } catch (Exception e) {
             e.printStackTrace()

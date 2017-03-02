@@ -1,5 +1,9 @@
 package com.squirrel_explorer.eagleeye.codescanning
 
+import com.squirrel_explorer.eagleeye.codescanning.lint.ApiCheckExtension
+import com.squirrel_explorer.eagleeye.codescanning.lint.ApiCheckTask
+import com.squirrel_explorer.eagleeye.codescanning.lint.LintExtension
+import com.squirrel_explorer.eagleeye.codescanning.lint.RunLintTask
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 

@@ -1,5 +1,6 @@
-package com.squirrel_explorer.eagleeye.codescanning
+package com.squirrel_explorer.eagleeye.codescanning.lint
 
+import com.squirrel_explorer.eagleeye.codescanning.BaseExtension
 import com.squirrel_explorer.eagleeye.codescanning.utils.FileUtils
 import org.gradle.api.Project
 

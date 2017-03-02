@@ -1,4 +1,4 @@
-package com.squirrel_explorer.eagleeye.codescanning
+package com.squirrel_explorer.eagleeye.codescanning.lint
 
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.TaskAction

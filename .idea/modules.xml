@@ -2,8 +2,8 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/eagleeye-gradle-codescanning.iml" filepath="$PROJECT_DIR$/eagleeye-gradle-codescanning.iml" />
-      <module fileurl="file://$PROJECT_DIR$/plugin/plugin.iml" filepath="$PROJECT_DIR$/plugin/plugin.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/eagleeye-gradle-codescanning.iml" filepath="$PROJECT_DIR$/.idea/modules/eagleeye-gradle-codescanning.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/plugin/plugin.iml" filepath="$PROJECT_DIR$/.idea/modules/plugin/plugin.iml" />
     </modules>
   </component>
 </project>
