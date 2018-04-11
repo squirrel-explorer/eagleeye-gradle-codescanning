@@ -1,110 +1,139 @@
 package com.squirrel_explorer.eagleeye.codescanning.lint
 
+import com.android.build.gradle.internal.LintGradleClient
+import com.android.build.gradle.internal.api.BaseVariantImpl
+import com.android.build.gradle.internal.dsl.LintOptions
+import com.android.build.gradle.internal.scope.GlobalScope
+import com.android.build.gradle.internal.tasks.BaseTask
+import com.android.build.gradle.internal.variant.BaseVariantData
+import com.android.build.gradle.tasks.LintBaseTask
 import com.android.builder.model.AndroidProject
 import com.android.builder.model.Variant
-import com.android.tools.lint.*
+import com.android.tools.lint.LintCliFlags
+import com.android.tools.lint.Warning
 import com.android.tools.lint.checks.BuiltinIssueRegistry
 import com.android.tools.lint.client.api.IssueRegistry
-import com.squirrel_explorer.eagleeye.codescanning.AbstractScanTask
-import com.squirrel_explorer.eagleeye.codescanning.utils.FileUtils
+import com.android.tools.lint.client.api.LintBaseline
+import com.android.utils.Pair
+import com.squirrel_explorer.eagleeye.codescanning.AnalysisCallback
+import com.squirrel_explorer.eagleeye.codescanning.utils.SystemUtils
+import org.gradle.api.Project
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.ModuleVersionIdentifier
-import org.gradle.tooling.GradleConnector
+import org.gradle.tooling.provider.model.ToolingModelBuilder
 
 import java.lang.reflect.Constructor
+import java.lang.reflect.Method
 
 /**
  * Task Id : N/A
- * Content : Base class for Lint task
+ * Content : Base Class for Lint Task
  */
-public abstract class BaseLintTask extends AbstractScanTask {
+abstract class BaseLintTask extends BaseTask implements AnalysisCallback {
+    protected LintOptions options
     protected IssueRegistry registry
     protected LintCliFlags flags
-    protected LintCliClient client
+    protected Variant variant
+    protected GlobalScope globalScope
+    protected LintGradleClient client
 
-    public void initialize(String productFlavor, String buildType) {
+    protected String defaultHtmlOutput = project.buildDir.absolutePath + '/outputs/lint-results.html'
+
+    protected void preRun() {
+        options = createLintOptions()
+
         registry = new BuiltinIssueRegistry()
         flags = new LintCliFlags()
 
         // 只支持Android工程，即com.android.application和com.android.library
-        client = createLintGradleClient(productFlavor, buildType)
+        client = createLintGradleClient()
+
+        setVariantName(variant.name)
     }
 
-    // Gradle插件中LintGradleClient的构造函数signature(不同版本的构造函数是不一样的)
-    // 2.0.0 - latest
-    private static final String SIGNATURE_2_0_0 = '[class com.android.tools.lint.client.api.IssueRegistry, class com.android.tools.lint.LintCliFlags, interface org.gradle.api.Project, interface com.android.builder.model.AndroidProject, class java.io.File, interface com.android.builder.model.Variant, class com.android.sdklib.BuildToolInfo]'
-    // 1.5.0
-    private static final String SIGNATURE_1_5_0 = '[class com.android.tools.lint.client.api.IssueRegistry, class com.android.tools.lint.LintCliFlags, interface org.gradle.api.Project, interface com.android.builder.model.AndroidProject, class java.io.File, class java.lang.String, class com.android.sdklib.BuildToolInfo]'
-    // 1.1.0 - 1.3.0
-    private static final String SIGNATURE_1_1_0 = '[class com.android.tools.lint.client.api.IssueRegistry, class com.android.tools.lint.LintCliFlags, interface org.gradle.api.Project, interface com.android.builder.model.AndroidProject, class java.io.File, class java.lang.String]'
+    private LintOptions createLintOptions() {
+        LintOptions options = new LintOptions()
 
-    private LintCliClient createLintGradleClient(String productFlavor, String buildType) {
-        GradleConnector gradleConn = GradleConnector.newConnector()
-        gradleConn.forProjectDirectory(project.projectDir)
-        AndroidProject androidProject = null
+        Set<String> disableIds = new HashSet<String>()
+        // 此处对使用java plugin但实际上却是Android工程的项目做了兼容,去除不影响实际扫描结果的LintError
+        if (project.plugins.hasPlugin('java')) {
+            disableIds.add('LintError')
+        }
+        options.setDisable(disableIds)
+        options.setEnable(new HashSet<String>())
+        options.setCheck(new HashSet<String>())
+
+        return options
+    }
+
+    // 4.0.0 - latest
+    private static final String SIGNATURE_4_0_0 = '[class com.android.tools.lint.client.api.IssueRegistry, class com.android.tools.lint.LintCliFlags, interface org.gradle.api.Project, interface com.android.builder.model.AndroidProject, class java.io.File, interface com.android.builder.model.Variant, class com.android.build.gradle.tasks.LintBaseTask$VariantInputs, class com.android.sdklib.BuildToolInfo]'
+
+    private LintGradleClient createLintGradleClient() {
+        // 获取Gradle工程的variant
+        BaseVariantImpl variantImpl = null
+        if (project.plugins.hasPlugin('com.android.application')) {
+            variantImpl = project.android.applicationVariants.toArray()[0]
+        } else if (project.plugins.hasPlugin('com.android.library')) {
+            variantImpl = project.android.libraryVariants.toArray()[0]
+        }
+
+        if (variantImpl == null) {
+            return null
+        }
+
+        // 获取variant的详细数据
+        BaseVariantData variantData = null
         try {
-            androidProject = gradleConn.connect().getModel(AndroidProject.class)
-        } catch (Exception e) {
-            // Not an Android project or Android project configured incorrectly
-            return null
-        }
-        if (null == androidProject) {
-            return null
-        }
-
-        Collection<Variant> variantList = androidProject.getVariants()
-        if (null == variantList || variantList.isEmpty()) {
-            return null
-        }
-        String targetVariantName = new StringBuilder().append(productFlavor).append(buildType).toString()
-        Variant variant = null
-        for (int i = 0; i < variantList.size(); i++) {
-            if (variantList.getAt(i).getName().equalsIgnoreCase(targetVariantName)) {
-                variant = variantList.getAt(i)
-                break
+            Method method = BaseVariantImpl.getDeclaredMethod('getVariantData')
+            if (method != null) {
+                // BaseVariantImpl#getVariantData()是protected方法
+                method.setAccessible(true)
+                variantData = method.invoke(variantImpl)
             }
-        }
-        if (null == variant) {
-            variant = variantList.getAt(0)
+        } catch (Exception e) {
+            e.printStackTrace()
         }
 
-        LintCliClient lintClient = null
+        if (variantData == null) {
+            return null
+        }
 
+        // 创建AndroidProject
+        globalScope = variantData.scope.globalScope
+        String modelName = AndroidProject.class.getName()
+        ToolingModelBuilder modelBuilder = globalScope.toolingRegistry.getBuilder(modelName)
+        AndroidProject modelProject = (AndroidProject)modelBuilder.buildAll(modelName, project)
+
+        if (modelProject == null) {
+            return null
+        }
+
+        Collection<Variant> variantList = modelProject.getVariants()
+        if (variantList == null || variantList.isEmpty()) {
+            return null
+        }
+        variant = variantList.toArray()[0]
+
+        // 创建LintGradleClient
+        LintGradleClient lintClient = null
         try {
             Class clazz = Class.forName('com.android.build.gradle.internal.LintGradleClient')
-            if (null != clazz) {
+            if (clazz != null) {
                 Constructor[] constructors = clazz.getConstructors()
-                if (null != constructors && constructors.length > 0) {
+                if (constructors != null && constructors.length > 0) {
                     for (Constructor constructor : constructors) {
                         String signature = constructor.getParameterTypes().toString()
-                        if (SIGNATURE_2_0_0.equals(signature)) {
-                            lintClient = (LintCliClient)constructor.newInstance(
+                        if (SIGNATURE_4_0_0.equals(signature)) {
+                            lintClient = (LintGradleClient)constructor.newInstance(
                                     registry,
                                     flags,
                                     project,
-                                    androidProject,
+                                    modelProject,
                                     null,
                                     variant,
+                                    new LintBaseTask.VariantInputs(variantData.getScope()),
                                     null)
-                            break
-                        } else if (SIGNATURE_1_5_0.equals(signature)) {
-                            lintClient = (LintCliClient)constructor.newInstance(
-                                    registry,
-                                    flags,
-                                    project,
-                                    androidProject,
-                                    null,
-                                    variant.getName(),
-                                    null)
-                            break
-                        } else if (SIGNATURE_1_1_0.equals(signature)) {
-                            lintClient = (LintCliClient)constructor.newInstance(
-                                    registry,
-                                    flags,
-                                    project,
-                                    androidProject,
-                                    null,
-                                    variant.getName())
                             break
                         }
                     }
@@ -112,7 +141,6 @@ public abstract class BaseLintTask extends AbstractScanTask {
             }
         } catch (Exception e) {
             e.printStackTrace()
-            lintClient = null
         }
 
         return lintClient
@@ -180,88 +208,117 @@ public abstract class BaseLintTask extends AbstractScanTask {
     }
     */
 
-    protected void addReporters(File textOutput, File htmlOutput, File xmlOutput) {
-        if (null == client) {
-            return
+    private boolean syncLintOptions() {
+        LintOptions pluginLintOptions = globalScope.extension.lintOptions
+
+        pluginLintOptions.disable = options.disable
+        pluginLintOptions.enable = options.enable
+        pluginLintOptions.check = options.check
+        pluginLintOptions.textReport = options.textReport
+        if (options.textOutput != null) {
+            pluginLintOptions.textOutput(options.textOutput)
+        }
+        pluginLintOptions.htmlReport = options.htmlReport
+        if (options.htmlOutput != null) {
+            pluginLintOptions.htmlOutput = options.htmlOutput
+        }
+        pluginLintOptions.xmlReport = options.xmlReport
+        if (options.xmlOutput != null) {
+            pluginLintOptions.xmlOutput = options.xmlOutput
+        }
+        pluginLintOptions.abortOnError = false
+
+        boolean ret = true
+        try {
+            Class clazz = Class.forName('com.android.build.gradle.tasks.LintBaseTask')
+            if (clazz == null) {
+                ret = false
+            } else {
+                Method method = clazz.getDeclaredMethod('syncOptions', LintOptions.class, LintGradleClient.class, LintCliFlags.class, Variant.class, Project.class, File.class, boolean.class, boolean.class)
+                if (method == null) {
+                    ret = false
+                } else {
+                    method.setAccessible(true)
+                    method.invoke(null, pluginLintOptions, client, flags, variant, project, null, true, false)
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace()
+            ret = false
         }
 
-        List<Reporter> reporters = flags.getReporters()
-        Reporter reporter
-        boolean needDefaultReporter = true
-        if (null != textOutput) {
-            reporter = new TextReporter(client, flags, new FileWriter(textOutput), true)
-            reporters.add(reporter)
-            needDefaultReporter = false
-        }
-        if (null != htmlOutput) {
-            reporter = new HtmlReporter(client, htmlOutput)
-            reporters.add(reporter)
-            needDefaultReporter = false
-        }
-        if (null != xmlOutput) {
-            reporter = new XmlReporter(client, xmlOutput)
-            reporters.add(reporter)
-            needDefaultReporter = false
-        }
-        if (needDefaultReporter) {
-            File htmlReport = FileUtils.safeCreateFile(defaultOutput)
-            if (null != htmlReport) {
-                reporter = new HtmlReporter(client, htmlReport)
-                reporters.add(reporter)
-            }
-        }
+        return ret
     }
 
-    /**
-     * 解析Gradle配置里的eagleeye依赖,那些是eagleeye plugin的自定义规则库依赖,形如:
-     * build.gradle :
-     * configurations {
-     *     eagleeye
-     * }
-     *
-     * dependencies {
-     *     eagleeye 'com.squirrel-explorer.eagleeye:lint_rules_allinone:1.0.1'
-     * }
-     *
-     * @return  自定义规则库Jar包在本地maven仓库里的路径
-     */
-    private ArrayList<String> parseCustomRulesFromDep() {
-        // 自定义configuration名称必须是'eagleeye'
-        if (null == project.configurations.findByName('eagleeye')) {
-            return null
-        }
+    protected Pair<List<Warning>, LintBaseline> analyze() {
+        Pair<List<Warning>, LintBaseline> warnings = null
 
-        // 获取dependencies里'eagleeye'配置的依赖
-        HashSet<String> depSet = new HashSet<String>()
-        Configuration configuration = project.configurations.getByName('eagleeye')
-        configuration.dependencies.each { dependency ->
-            depSet.add(dependency.group + dependency.name)
-        }
-        if (depSet.isEmpty()) {
-            return null
-        }
-
-        // 从已解析好的依赖中找到'eagleeye'的,获取其在本地maven仓库中的路径
-        ArrayList<String> customRulesFromDep = new ArrayList<String>()
-        configuration.resolvedConfiguration.resolvedArtifacts.each { artifact ->
-            ModuleVersionIdentifier moduleVersionId = artifact.moduleVersion.id
-            if (depSet.contains(moduleVersionId.group + moduleVersionId.name)) {
-                customRulesFromDep.add(artifact.file.absolutePath)
+        if (syncLintOptions()) {
+            try {
+                warnings = client.run(registry)
+            } catch (IOException e) {
+                e.printStackTrace()
             }
         }
 
-        return customRulesFromDep.isEmpty() ? null : customRulesFromDep
+        return warnings
     }
 
-    protected void addCustomRules(ArrayList<String> customRules) {
+    @Override
+    void onRulesDisabled(Set<String> disable) {
+        if (disable != null && !disable.isEmpty()) {
+            options.getDisable().addAll(disable)
+        }
+    }
+
+    @Override
+    void onRulesEnabled(Set<String> enable) {
+        if (enable != null && !enable.isEmpty()) {
+            options.getEnable().addAll(enable)
+        }
+    }
+
+    @Override
+    void onRulesChecked(Set<String> check) {
+        if (check != null && !check.isEmpty()) {
+            options.getCheck().addAll(check)
+        }
+    }
+
+    @Override
+    void onTextReport(File textOutput) {
+        if (textOutput != null) {
+            options.setTextReport(true)
+            options.textOutput(textOutput)
+        }
+    }
+
+    @Override
+    void onHtmlReport(File htmlOutput) {
+        if (htmlOutput != null) {
+            options.setHtmlReport(true)
+            options.setHtmlOutput(htmlOutput)
+        }
+    }
+
+    @Override
+    void onXmlReport(File xmlOutput) {
+        if (xmlOutput != null) {
+            options.setXmlReport(true)
+            options.setXmlOutput(xmlOutput)
+        }
+    }
+
+    @Override
+    void onCustomRulesAdded(Set<String> customJars) {
         // 合并用户通过在codescanning->lint closure和dependencies两处设置的自定义规则库Jar包列表
         ArrayList<String> combinedCustomRules = new ArrayList<String>()
         ArrayList<String> customRulesFromDep = parseCustomRulesFromDep()
-        if (null != customRulesFromDep) {
+        if (customRulesFromDep != null) {
             combinedCustomRules.addAll(customRulesFromDep)
         }
-        if (null != customRules) {
-            combinedCustomRules.addAll(customRules)
+        if (customJars != null) {
+            combinedCustomRules.addAll(customJars)
         }
         if (combinedCustomRules.isEmpty()) {
             return
@@ -270,7 +327,7 @@ public abstract class BaseLintTask extends AbstractScanTask {
         // 提取用户已经在ANDROID_LINT_JARS环境变量中预设置的自定义规则库Jar包列表
         HashSet<String> lintClassPaths = new HashSet<>()
         String lintClassPath = System.getenv('ANDROID_LINT_JARS')
-        if (null != lintClassPath && !lintClassPath.isEmpty()) {
+        if (lintClassPath != null && !lintClassPath.isEmpty()) {
             lintClassPaths.addAll(lintClassPath.split(File.pathSeparator))
         }
 
@@ -284,7 +341,7 @@ public abstract class BaseLintTask extends AbstractScanTask {
 
         if (sb.length() > 0) {
             // 去掉待设置环境变量字符串首尾的':'
-            if (null != lintClassPath && !lintClassPath.isEmpty()) {
+            if (lintClassPath != null && !lintClassPath.isEmpty()) {
                 lintClassPath += File.pathSeparator + sb.toString()
             } else {
                 lintClassPath = sb.toString()
@@ -296,21 +353,50 @@ public abstract class BaseLintTask extends AbstractScanTask {
             if (lintClassPath.endsWith(File.pathSeparator)) {
                 lintClassPath = lintClassPath.substring(0, lintClassPath.length() - File.pathSeparator.length())
             }
-            setenv('ANDROID_LINT_JARS', lintClassPath)
+            SystemUtils.setJavaEnv('ANDROID_LINT_JARS', lintClassPath)
         }
     }
 
-    protected void scan() {
-        // Scanning-directories
-        ArrayList<File> srcDirs = Arrays.asList(project.projectDir)
+    private static final String INKER_LINT_CONFIG = 'inkerLint'
 
-        // Scan
-        try {
-            if (null != client) {
-                client.run(registry, srcDirs)
-            }
-        } catch (Exception e) {
-            e.printStackTrace()
+    /**
+     * 解析Gradle配置里的inkerLint依赖,那些是eagleeye plugin的自定义规则库依赖,形如:
+     * build.gradle :
+     * configurations {
+     *     inkerLint
+     * }
+     *
+     * dependencies {
+     *     inkerLint 'com.squirrel-explorer.eagleeye:lint_rules_allinone:1.0.1'
+     * }
+     *
+     * @return  自定义规则库Jar包在本地maven仓库里的路径
+     */
+    private ArrayList<String> parseCustomRulesFromDep() {
+        // 自定义configuration名称必须是'inkerLint'
+        if (project.configurations.findByName(INKER_LINT_CONFIG) == null) {
+            return null
         }
+
+        // 获取dependencies里'inkerLint'配置的依赖
+        HashSet<String> depSet = new HashSet<String>()
+        Configuration configuration = project.configurations.getByName(INKER_LINT_CONFIG)
+        configuration.dependencies.each { dependency ->
+            depSet.add(dependency.group + dependency.name)
+        }
+        if (depSet.isEmpty()) {
+            return null
+        }
+
+        // 从已解析好的依赖中找到'inkerLint'的,获取其在本地maven仓库中的路径
+        ArrayList<String> customRulesFromDep = new ArrayList<String>()
+        configuration.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+            ModuleVersionIdentifier moduleVersionId = artifact.moduleVersion.id
+            if (depSet.contains(moduleVersionId.group + moduleVersionId.name)) {
+                customRulesFromDep.add(artifact.file.absolutePath)
+            }
+        }
+
+        return customRulesFromDep.isEmpty() ? null : customRulesFromDep
     }
 }

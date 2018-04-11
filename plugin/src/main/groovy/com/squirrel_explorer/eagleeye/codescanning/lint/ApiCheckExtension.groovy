@@ -15,14 +15,12 @@ class ApiCheckExtension extends BaseExtension {
     File htmlOutput             // HtmlReporter
     File xmlOutput              // XmlReporter
     ArrayList<String> apicheckRules = new ArrayList<String>()   // 自定义规则库Jar包列表
-    String productFlavor        // productFlavor in build.gradle
-    String buildType            // buildType in build.gradle
 
-    public ApiCheckExtension(Project project) {
+    ApiCheckExtension(Project project) {
         super(project)
     }
 
-    public void setApiCheckConfig(String apiCheckConfig) {
+    void setApiCheckConfig(String apiCheckConfig) {
         if (null != apiCheckConfig && apiCheckConfig.length() > 0) {
             if (apiCheckConfig.startsWith('http://') ||
                     apiCheckConfig.startsWith('https://') ||
@@ -35,7 +33,7 @@ class ApiCheckExtension extends BaseExtension {
         downloadApiCheckConfig()
     }
 
-    public void setApiCheckConfig(File apiCheckConfig) {
+    void setApiCheckConfig(File apiCheckConfig) {
         this.apiCheckConfig = apiCheckConfig
         downloadApiCheckConfig()
     }
@@ -140,39 +138,39 @@ class ApiCheckExtension extends BaseExtension {
         }
     }
 
-    public void setHideApi(boolean hideApi) {
+    void setHideApi(boolean hideApi) {
         this.hideApi = hideApi
     }
 
-    public void setRemovedApi(boolean removedApi) {
+    void setRemovedApi(boolean removedApi) {
         this.removedApi = removedApi
     }
 
-    public void setTextOutput(String textOutput) {
+    void setTextOutput(String textOutput) {
         this.textOutput = FileUtils.safeCreateFile(textOutput)
     }
 
-    public void setTextOutput(File textOutput) {
+    void setTextOutput(File textOutput) {
         this.textOutput = textOutput
     }
 
-    public void setHtmlOutput(String htmlOutput) {
+    void setHtmlOutput(String htmlOutput) {
         this.htmlOutput = FileUtils.safeCreateFile(htmlOutput)
     }
 
-    public void setHtmlOutput(File htmlOutput) {
+    void setHtmlOutput(File htmlOutput) {
         this.htmlOutput = htmlOutput
     }
 
-    public void setXmlOutput(String xmlOutput) {
+    void setXmlOutput(String xmlOutput) {
         this.xmlOutput = FileUtils.safeCreateFile(xmlOutput)
     }
 
-    public void setXmlOutput(File xmlOutput) {
+    void setXmlOutput(File xmlOutput) {
         this.xmlOutput = xmlOutput
     }
 
-    public void setApicheckRuleJar(String apicheckRule) {
+    void setApicheckRuleJar(String apicheckRule) {
         if (null != apicheckRule && apicheckRule.length() > 0) {
             String downloadDir = project.projectDir.absolutePath + '/lint-jars'
             if (apicheckRule.startsWith('http://') ||
@@ -186,13 +184,5 @@ class ApiCheckExtension extends BaseExtension {
                 this.apicheckRules.add(apicheckRule)
             }
         }
-    }
-
-    public void setProductFlavor(String productFlavor) {
-        this.productFlavor = productFlavor
-    }
-
-    public void setBuildType(String buildType) {
-        this.buildType = buildType
     }
 }

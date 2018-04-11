@@ -4,13 +4,13 @@ import com.squirrel_explorer.eagleeye.codescanning.lint.ApiCheckExtension
 import com.squirrel_explorer.eagleeye.codescanning.lint.LintExtension
 import org.gradle.api.Project
 
-class CodeScanningExtension extends BaseExtension {
+class InkerExtension extends BaseExtension {
     Project project
 
     LintExtension lint
     ApiCheckExtension apicheck
 
-    public CodeScanningExtension(Project project) {
+    public InkerExtension(Project project) {
         super(project)
     }
 }

@@ -1,5 +1,6 @@
 package com.squirrel_explorer.eagleeye.codescanning.lint
 
+import com.squirrel_explorer.eagleeye.codescanning.utils.FileUtils
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.TaskAction
 
@@ -7,27 +8,54 @@ import org.gradle.api.tasks.TaskAction
  * Task Id : apiCheck
  * Content : Run Android lint to check missing api
  */
-public class ApiCheckTask extends BaseLintTask {
+class ApiCheckTask extends BaseLintTask {
     @Input
     private ApiCheckExtension apicheck
 
-    public void setApiCheckConfiguration(ApiCheckExtension apicheck) {
+    void setApiCheckConfiguration(ApiCheckExtension apicheck) {
         this.apicheck = apicheck
-
-        this.defaultOutput = project.buildDir.absolutePath + '/outputs/apicheck-results.html'
     }
 
     @TaskAction
-    public void apiCheck() {
-        initialize(apicheck.productFlavor, apicheck.buildType)
+    void apiCheck() {
+        preRun()
 
-        // 只需检查MissingApiChecker这一个规则
-        flags.setExactCheckedIds(createIdSet('MissingApiChecker'))
+        analyze()
+    }
 
-        addReporters(apicheck.textOutput, apicheck.htmlOutput, apicheck.xmlOutput)
+    @Override
+    protected void preRun() {
+        super.preRun()
 
-        addCustomRules(apicheck.apicheckRules)
+        onRulesDisabled(null)
+        onRulesEnabled(null)
+        Set<String> check = new HashSet<>()
+        check.add('MissingApiChecker')
+        onRulesChecked(check)
 
-        scan()
+        boolean needDefaultReporter = true
+
+        if (apicheck.textOutput != null) {
+            onTextReport(apicheck.textOutput)
+            needDefaultReporter = false
+        }
+
+        if (apicheck.htmlOutput != null) {
+            onHtmlReport(apicheck.htmlOutput)
+            needDefaultReporter = false
+        }
+
+        if (apicheck.xmlOutput != null) {
+            onXmlReport(apicheck.xmlOutput)
+            needDefaultReporter = false
+        }
+
+        if (needDefaultReporter) {
+            onHtmlReport(FileUtils.safeCreateFile(defaultHtmlOutput))
+        }
+
+        if (apicheck.customRules != null && apicheck.customRules.isEmpty()) {
+            onCustomRulesAdded(apicheck.apicheckRules)
+        }
     }
 }

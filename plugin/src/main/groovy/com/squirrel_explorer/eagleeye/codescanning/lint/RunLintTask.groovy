@@ -1,5 +1,7 @@
 package com.squirrel_explorer.eagleeye.codescanning.lint
 
+import com.squirrel_explorer.eagleeye.codescanning.utils.ConfigUtils
+import com.squirrel_explorer.eagleeye.codescanning.utils.FileUtils
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.TaskAction
 
@@ -7,43 +9,60 @@ import org.gradle.api.tasks.TaskAction
  * Task Id : runLint
  * Content : Run Android lint
  */
-public class RunLintTask extends BaseLintTask {
+class RunLintTask extends BaseLintTask {
     @Input
     private LintExtension lint
 
-    public void setLintConfiguration(LintExtension lint) {
+    void setLintConfiguration(LintExtension lint) {
         this.lint = lint
-
-        this.defaultOutput = project.buildDir.absolutePath + '/outputs/lint-results.html'
     }
 
     @TaskAction
-    public void runLint() {
-        initialize(lint.productFlavor, lint.buildType)
+    void runLint() {
+        preRun()
 
-        // Disable
-        Set<String> suppressedIds = flags.getSuppressedIds()
-        // 此处对使用java plugin但实际上却是Android工程的项目做了兼容,去除不影响实际扫描结果的LintError
-        if (project.plugins.hasPlugin('java')) {
-            suppressedIds.add('LintError')
-        }
-        addIds(suppressedIds, lint.disable)
+        analyze()
+    }
 
-        // Enable
-        addIds(flags.getEnabledIds(), lint.enable)
+    @Override
+    protected void preRun() {
+        super.preRun()
 
-        // Check
-        flags.setExactCheckedIds(createIdSet(lint.check))
-
-        // LintConfig
-        if (null != lint.lintConfig) {
-            flags.setDefaultConfiguration(lint.lintConfig)
+        if (lint.disable != null && !lint.disable.isEmpty()) {
+            onRulesDisabled(ConfigUtils.parseIds(lint.disable))
         }
 
-        addReporters(lint.textOutput, lint.htmlOutput, lint.xmlOutput)
+        if (lint.enable != null && !lint.enable.isEmpty()) {
+            onRulesEnabled(ConfigUtils.parseIds(lint.enable))
+        }
 
-        addCustomRules(lint.customRules)
+        if (lint.check != null && !lint.check.isEmpty()) {
+            onRulesChecked(ConfigUtils.parseIds(lint.check))
+        }
 
-        scan()
+        boolean needDefaultReporter = true
+
+        if (lint.textOutput != null) {
+            onTextReport(lint.textOutput)
+            needDefaultReporter = false
+        }
+
+        if (lint.htmlOutput != null) {
+            onHtmlReport(lint.htmlOutput)
+            needDefaultReporter = false
+        }
+
+        if (lint.xmlOutput != null) {
+            onXmlReport(lint.xmlOutput)
+            needDefaultReporter = false
+        }
+
+        if (needDefaultReporter) {
+            onHtmlReport(FileUtils.safeCreateFile(defaultHtmlOutput))
+        }
+
+        if (lint.customRules != null && lint.customRules.isEmpty()) {
+            onCustomRulesAdded(lint.customRules)
+        }
     }
 }
