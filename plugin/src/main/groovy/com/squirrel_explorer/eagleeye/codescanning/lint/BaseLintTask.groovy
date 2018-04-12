@@ -33,11 +33,90 @@ abstract class BaseLintTask extends BaseTask implements AnalysisCallback {
     protected LintOptions options
     protected IssueRegistry registry
     protected LintCliFlags flags
+
+    protected BaseVariantData variantData
     protected Variant variant
     protected GlobalScope globalScope
+    protected AndroidProject modelProject
+
     protected LintGradleClient client
 
     protected String defaultHtmlOutput = project.buildDir.absolutePath + '/outputs/lint-results.html'
+
+    BaseLintTask() {
+        initEnv()
+    }
+
+    protected void initEnv() {
+        // 获取Gradle工程的variant
+        // （对多个variant，只取第一个debug variant，这里只做静态扫描，不是打包）
+        BaseVariantImpl[] variantImplList = null
+        if (project.plugins.hasPlugin('com.android.application')) {
+            variantImplList = project.android.applicationVariants.toArray()
+        } else if (project.plugins.hasPlugin('com.android.library')) {
+            variantImplList = project.android.libraryVariants.toArray()
+        }
+
+        BaseVariantImpl variantImpl = null
+        if (variantImplList != null && variantImplList.length > 0) {
+            for (BaseVariantImpl v : variantImplList) {
+                if (v.name.toLowerCase().contains('debug')) {
+                    variantImpl = v
+                    break
+                }
+            }
+
+            if (variantImpl == null) {
+                variantImpl = variantImplList[0]
+            }
+        }
+
+        if (variantImpl == null) {
+            return
+        }
+
+        // 获取variant的详细数据
+        try {
+            Method method = BaseVariantImpl.getDeclaredMethod('getVariantData')
+            if (method != null) {
+                // BaseVariantImpl#getVariantData()是protected方法
+                method.setAccessible(true)
+                variantData = method.invoke(variantImpl)
+            }
+        } catch (Exception e) {
+            e.printStackTrace()
+        }
+
+        if (variantData == null) {
+            return
+        }
+
+        // 获取全局scope
+        globalScope = variantData.scope.globalScope
+
+        // 创建AndroidProject
+        String modelName = AndroidProject.class.getName()
+        ToolingModelBuilder modelBuilder = globalScope.toolingRegistry.getBuilder(modelName)
+        modelProject = (AndroidProject)modelBuilder.buildAll(modelName, project)
+
+        if (modelProject == null) {
+            return
+        }
+
+        Collection<Variant> variantList = modelProject.getVariants()
+        if (variantList != null && !variantList.isEmpty()) {
+            for (Variant v : variantList) {
+                if (v.name.equals(variantImpl.name)) {
+                    variant = v
+                    break
+                }
+            }
+        }
+
+        if (variant != null) {
+            setVariantName(variant.name)
+        }
+    }
 
     protected void preRun() {
         options = createLintOptions()
@@ -70,51 +149,6 @@ abstract class BaseLintTask extends BaseTask implements AnalysisCallback {
     private static final String SIGNATURE_4_0_0 = '[class com.android.tools.lint.client.api.IssueRegistry, class com.android.tools.lint.LintCliFlags, interface org.gradle.api.Project, interface com.android.builder.model.AndroidProject, class java.io.File, interface com.android.builder.model.Variant, class com.android.build.gradle.tasks.LintBaseTask$VariantInputs, class com.android.sdklib.BuildToolInfo]'
 
     private LintGradleClient createLintGradleClient() {
-        // 获取Gradle工程的variant
-        BaseVariantImpl variantImpl = null
-        if (project.plugins.hasPlugin('com.android.application')) {
-            variantImpl = project.android.applicationVariants.toArray()[0]
-        } else if (project.plugins.hasPlugin('com.android.library')) {
-            variantImpl = project.android.libraryVariants.toArray()[0]
-        }
-
-        if (variantImpl == null) {
-            return null
-        }
-
-        // 获取variant的详细数据
-        BaseVariantData variantData = null
-        try {
-            Method method = BaseVariantImpl.getDeclaredMethod('getVariantData')
-            if (method != null) {
-                // BaseVariantImpl#getVariantData()是protected方法
-                method.setAccessible(true)
-                variantData = method.invoke(variantImpl)
-            }
-        } catch (Exception e) {
-            e.printStackTrace()
-        }
-
-        if (variantData == null) {
-            return null
-        }
-
-        // 创建AndroidProject
-        globalScope = variantData.scope.globalScope
-        String modelName = AndroidProject.class.getName()
-        ToolingModelBuilder modelBuilder = globalScope.toolingRegistry.getBuilder(modelName)
-        AndroidProject modelProject = (AndroidProject)modelBuilder.buildAll(modelName, project)
-
-        if (modelProject == null) {
-            return null
-        }
-
-        Collection<Variant> variantList = modelProject.getVariants()
-        if (variantList == null || variantList.isEmpty()) {
-            return null
-        }
-        variant = variantList.toArray()[0]
-
         // 创建LintGradleClient
         LintGradleClient lintClient = null
         try {
@@ -132,7 +166,7 @@ abstract class BaseLintTask extends BaseTask implements AnalysisCallback {
                                     modelProject,
                                     null,
                                     variant,
-                                    new LintBaseTask.VariantInputs(variantData.getScope()),
+                                    new LintBaseTask.VariantInputs(variantData.scope),
                                     null)
                             break
                         }

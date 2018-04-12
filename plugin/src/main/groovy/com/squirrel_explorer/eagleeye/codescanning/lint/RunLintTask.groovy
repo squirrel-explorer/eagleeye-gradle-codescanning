@@ -2,6 +2,7 @@ package com.squirrel_explorer.eagleeye.codescanning.lint
 
 import com.squirrel_explorer.eagleeye.codescanning.utils.ConfigUtils
 import com.squirrel_explorer.eagleeye.codescanning.utils.FileUtils
+import com.squirrel_explorer.eagleeye.codescanning.utils.LogUtils
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.TaskAction
 
@@ -13,14 +14,23 @@ class RunLintTask extends BaseLintTask {
     @Input
     private LintExtension lint
 
+    private static final String TAG = 'RunLint'
+
+    RunLintTask() {
+        super()
+    }
+
     void setLintConfiguration(LintExtension lint) {
         this.lint = lint
     }
 
     @TaskAction
     void runLint() {
+        LogUtils.i(TAG, 'BEGIN executing runLint ......')
+
         preRun()
 
+        LogUtils.i(TAG, 'BEGIN analyzing ......')
         analyze()
     }
 
