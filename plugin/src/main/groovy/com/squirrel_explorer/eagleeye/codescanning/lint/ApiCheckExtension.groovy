@@ -21,7 +21,7 @@ class ApiCheckExtension extends BaseExtension {
     }
 
     void setApiCheckConfig(String apiCheckConfig) {
-        if (null != apiCheckConfig && apiCheckConfig.length() > 0) {
+        if (apiCheckConfig != null && !apiCheckConfig.isEmpty()) {
             if (apiCheckConfig.startsWith('http://') ||
                     apiCheckConfig.startsWith('https://') ||
                     apiCheckConfig.startsWith('ftp://')) {
@@ -53,7 +53,7 @@ class ApiCheckExtension extends BaseExtension {
      * ......
      */
     private void downloadApiCheckConfig() {
-        if (null != apiCheckConfig) {
+        if (apiCheckConfig != null) {
             ArrayList<String> apiCheckList = new ArrayList<String>()
             ArrayList<String> apiCheckMd5List = new ArrayList<String>()
 
@@ -65,23 +65,23 @@ class ApiCheckExtension extends BaseExtension {
                 br = new BufferedReader(fr)
 
                 String str = null
-                while (null != (str = br.readLine())) {
+                while ((str = br.readLine()) != null) {
                     apiCheckList.add(str)
                 }
             } catch (Exception e) {
                 // TODO
             } finally {
-                if (null != br) {
+                if (br != null) {
                     br.close()
                     br = null
                 }
-                if (null != fr) {
+                if (fr != null) {
                     fr.close()
                     fr = null
                 }
             }
 
-            if (!apiCheckList.isEmpty() && (0 == apiCheckList.size() % 2)) {
+            if (!apiCheckList.isEmpty() && (apiCheckList.size() % 2 == 0)) {
                 // 将各版本hide/removed API信息的文件及其md5分离
                 // 奇数行:文件
                 // 偶数行:文件md5
@@ -123,7 +123,7 @@ class ApiCheckExtension extends BaseExtension {
                         } catch (Exception e) {
                             e.printStackTrace()
                         } finally {
-                            if (null != input) {
+                            if (input != null) {
                                 input.close()
                                 input = null
                             }
@@ -171,13 +171,13 @@ class ApiCheckExtension extends BaseExtension {
     }
 
     void setApicheckRuleJar(String apicheckRule) {
-        if (null != apicheckRule && apicheckRule.length() > 0) {
+        if (apicheckRule != null && !apicheckRule.isEmpty()) {
             String downloadDir = project.projectDir.absolutePath + '/lint-jars'
             if (apicheckRule.startsWith('http://') ||
                     apicheckRule.startsWith('https://') ||
                     apicheckRule.startsWith('ftp://')) {
                 File customRuleFile = FileUtils.downloadFile(apicheckRule, downloadDir)
-                if (null != customRuleFile) {
+                if (customRuleFile != null) {
                     this.apicheckRules.add(customRuleFile.absolutePath)
                 }
             } else {

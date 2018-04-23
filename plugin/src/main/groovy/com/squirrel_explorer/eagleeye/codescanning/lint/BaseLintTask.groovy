@@ -1,12 +1,11 @@
 package com.squirrel_explorer.eagleeye.codescanning.lint
 
 import com.android.build.gradle.internal.LintGradleClient
-import com.android.build.gradle.internal.api.BaseVariantImpl
 import com.android.build.gradle.internal.dsl.LintOptions
 import com.android.build.gradle.internal.scope.GlobalScope
+import com.android.build.gradle.internal.scope.VariantScope
 import com.android.build.gradle.internal.tasks.BaseTask
 import com.android.build.gradle.internal.variant.BaseVariantData
-import com.android.build.gradle.tasks.LintBaseTask
 import com.android.builder.model.AndroidProject
 import com.android.builder.model.Variant
 import com.android.tools.lint.LintCliFlags
@@ -17,6 +16,7 @@ import com.android.tools.lint.client.api.LintBaseline
 import com.android.utils.Pair
 import com.squirrel_explorer.eagleeye.codescanning.AnalysisCallback
 import com.squirrel_explorer.eagleeye.codescanning.utils.SystemUtils
+import org.gradle.api.GradleException
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.ModuleVersionIdentifier
@@ -48,36 +48,58 @@ abstract class BaseLintTask extends BaseTask implements AnalysisCallback {
     }
 
     protected void initEnv() {
-        // 获取Gradle工程的variant
-        // （对多个variant，只取第一个debug variant，这里只做静态扫描，不是打包）
-        BaseVariantImpl[] variantImplList = null
+        // 获取Gradle脚本中的variant列表
+        // （这里的variant基类是个隐藏内部类，所以不直接指定类型）
+        Object[] variantImplList = null
         if (project.plugins.hasPlugin('com.android.application')) {
             variantImplList = project.android.applicationVariants.toArray()
         } else if (project.plugins.hasPlugin('com.android.library')) {
             variantImplList = project.android.libraryVariants.toArray()
         }
 
-        BaseVariantImpl variantImpl = null
-        if (variantImplList != null && variantImplList.length > 0) {
-            for (BaseVariantImpl v : variantImplList) {
-                if (v.name.toLowerCase().contains('debug')) {
-                    variantImpl = v
-                    break
+        if (variantImplList == null || variantImplList.length == 0) {
+            return
+        }
+
+        Object variantImpl = null
+        String variantImplName = null
+
+        try {
+            // 获取Gradle工程的variant
+            // （对多个variant，只取第一个debug variant，这里只做静态扫描，不是打包）
+
+            // com.android.build.gradle.internal.api.BaseVariantImpl是内部类
+            Class baseVariantImplClazz = Class.forName('com.android.build.gradle.internal.api.BaseVariantImpl')
+            if (baseVariantImplClazz == null) {
+                return
+            }
+
+            Method method = baseVariantImplClazz.getMethod('getName')
+            if (method == null) {
+                return
+            }
+            method.setAccessible(true)
+
+            for (Object obj : variantImplList) {
+                if (baseVariantImplClazz.isAssignableFrom(obj.getClass())) {
+                    variantImplName = (String)method.invoke(obj)
+                    if (variantImplName.toLowerCase().contains('debug')) {
+                        variantImpl = obj
+                        break
+                    }
                 }
             }
 
             if (variantImpl == null) {
                 variantImpl = variantImplList[0]
             }
-        }
 
-        if (variantImpl == null) {
-            return
-        }
+            if (variantImpl == null) {
+                return
+            }
 
-        // 获取variant的详细数据
-        try {
-            Method method = BaseVariantImpl.getDeclaredMethod('getVariantData')
+            // 获取variant的详细数据
+            method = baseVariantImplClazz.getDeclaredMethod('getVariantData')
             if (method != null) {
                 // BaseVariantImpl#getVariantData()是protected方法
                 method.setAccessible(true)
@@ -106,7 +128,7 @@ abstract class BaseLintTask extends BaseTask implements AnalysisCallback {
         Collection<Variant> variantList = modelProject.getVariants()
         if (variantList != null && !variantList.isEmpty()) {
             for (Variant v : variantList) {
-                if (v.name.equals(variantImpl.name)) {
+                if (v.name.equals(variantImplName)) {
                     variant = v
                     break
                 }
@@ -145,8 +167,29 @@ abstract class BaseLintTask extends BaseTask implements AnalysisCallback {
         return options
     }
 
-    // 4.0.0 - latest
-    private static final String SIGNATURE_4_0_0 = '[class com.android.tools.lint.client.api.IssueRegistry, class com.android.tools.lint.LintCliFlags, interface org.gradle.api.Project, interface com.android.builder.model.AndroidProject, class java.io.File, interface com.android.builder.model.Variant, class com.android.build.gradle.tasks.LintBaseTask$VariantInputs, class com.android.sdklib.BuildToolInfo]'
+    // com.android.tools.build:gradle:3.0.0+
+    private static final String LintGradleClient_Constructor_3_0_0 = '[class com.android.tools.lint.client.api.IssueRegistry, class com.android.tools.lint.LintCliFlags, interface org.gradle.api.Project, interface com.android.builder.model.AndroidProject, class java.io.File, interface com.android.builder.model.Variant, class com.android.build.gradle.tasks.LintBaseTask$VariantInputs, class com.android.sdklib.BuildToolInfo]'
+    private static final String LintTask_3_0_0 = 'com.android.build.gradle.tasks.LintBaseTask'
+    // com.android.tools.build:gradle:2.0.0+
+    private static final String LintGradleClient_Constructor_2_0_0 = '[class com.android.tools.lint.client.api.IssueRegistry, class com.android.tools.lint.LintCliFlags, interface org.gradle.api.Project, interface com.android.builder.model.AndroidProject, class java.io.File, interface com.android.builder.model.Variant, class com.android.sdklib.BuildToolInfo]'
+    private static final String LintTask_2_0_0 = 'com.android.build.gradle.tasks.Lint'
+
+    private static Class lintTaskClazz = null
+    private static Class getLintTaskClazz() {
+        if (lintTaskClazz == null) {
+            try {
+                lintTaskClazz = Class.forName(LintTask_3_0_0)
+            } catch (Exception e) {
+            }
+            if (lintTaskClazz == null) {
+                try {
+                    lintTaskClazz = Class.forName(LintTask_2_0_0)
+                } catch (Exception e) {
+                }
+            }
+        }
+        return lintTaskClazz
+    }
 
     private LintGradleClient createLintGradleClient() {
         // 创建LintGradleClient
@@ -158,21 +201,44 @@ abstract class BaseLintTask extends BaseTask implements AnalysisCallback {
                 if (constructors != null && constructors.length > 0) {
                     for (Constructor constructor : constructors) {
                         String signature = constructor.getParameterTypes().toString()
-                        if (SIGNATURE_4_0_0.equals(signature)) {
-                            lintClient = (LintGradleClient)constructor.newInstance(
+                        if (LintGradleClient_Constructor_3_0_0.equals(signature)) {
+                            Object variantInputs = null
+                            Class variantInputsClazz = Class.forName(LintTask_3_0_0 + '$VariantInputs')
+                            if (variantInputsClazz != null) {
+                                Constructor variantInputsConstructor = variantInputsClazz.getConstructor(VariantScope.class)
+                                if (variantInputsConstructor != null) {
+                                    variantInputs = variantInputsConstructor.newInstance(variantData.scope)
+                                }
+                            }
+                            if (variantInputs == null) {
+                                throw new GradleException('Cannot construct com.android.build.gradle.tasks.LintBaseTask$VariantInputs')
+                            }
+
+                            lintClient = (LintGradleClient) constructor.newInstance(
                                     registry,
                                     flags,
                                     project,
                                     modelProject,
                                     null,
                                     variant,
-                                    new LintBaseTask.VariantInputs(variantData.scope),
+                                    variantInputs,
                                     null)
                             break
+                        } else if (LintGradleClient_Constructor_2_0_0.equals(signature)) {
+                            lintClient = (LintGradleClient) constructor.newInstance(
+                                    registry,
+                                    flags,
+                                    project,
+                                    modelProject,
+                                    null,
+                                    variant,
+                                    null)
                         }
                     }
                 }
             }
+        } catch (GradleException e) {
+            throw e
         } catch (Exception e) {
             e.printStackTrace()
         }
@@ -185,25 +251,25 @@ abstract class BaseLintTask extends BaseTask implements AnalysisCallback {
         int[] digits1 = extraceVersions(version1)
         int[] digits2 = extraceVersions(version2)
 
-        if (null == digits1 || 0 == digits1.length) {
-            if (null == digits2 || 0 == digits2.length) {
+        if (digits1 == null || digits1.length == 0) {
+            if (digits2 == null || digits2.length == 0) {
                 return 0
             } else {
                 return -1
             }
         } else {
-            if (null == digits2 || 0 == digits2.length) {
+            if (digits2 == null || digits2.length == 0) {
                 return 1
             } else {
                 int size = (digits1.length < digits2.length ? digits1.length : digits2.length)
                 int ret = 0
                 for (int i = 0; i < size; i++) {
                     ret = digits1[i] - digits2[i]
-                    if (0 != ret) {
+                    if (ret != 0) {
                         break
                     }
                 }
-                if (0 == ret) {
+                if (ret == 0) {
                     if (digits1.length > size) {
                         ret = 1
                     } else {
@@ -216,17 +282,17 @@ abstract class BaseLintTask extends BaseTask implements AnalysisCallback {
     }
 
     private int[] extraceVersions(String version) {
-        if (null == version || version.isEmpty()) {
+        if (version == null || version.isEmpty()) {
             return null
         }
 
         String digitalVersion = version.split('-')[0].trim()
-        if (null == digitalVersion || digitalVersion.isEmpty()) {
+        if (digitalVersion == null || digitalVersion.isEmpty()) {
             return null
         }
 
         String[] digitalVersions = digitalVersion.split('\\.')
-        if (null == digitalVersions || 0 == digitalVersions.length) {
+        if (digitalVersions == null || digitalVersions.length == 0) {
             return null
         }
 
@@ -264,7 +330,7 @@ abstract class BaseLintTask extends BaseTask implements AnalysisCallback {
 
         boolean ret = true
         try {
-            Class clazz = Class.forName('com.android.build.gradle.tasks.LintBaseTask')
+            Class clazz = getLintTaskClazz()
             if (clazz == null) {
                 ret = false
             } else {
@@ -345,7 +411,7 @@ abstract class BaseLintTask extends BaseTask implements AnalysisCallback {
 
     @Override
     void onCustomRulesAdded(Set<String> customJars) {
-        // 合并用户通过在codescanning->lint closure和dependencies两处设置的自定义规则库Jar包列表
+        // 合并用户通过在inker->lint closure和dependencies两处设置的自定义规则库Jar包列表
         ArrayList<String> combinedCustomRules = new ArrayList<String>()
         ArrayList<String> customRulesFromDep = parseCustomRulesFromDep()
         if (customRulesFromDep != null) {
@@ -394,7 +460,7 @@ abstract class BaseLintTask extends BaseTask implements AnalysisCallback {
     private static final String INKER_LINT_CONFIG = 'inkerLint'
 
     /**
-     * 解析Gradle配置里的inkerLint依赖,那些是eagleeye plugin的自定义规则库依赖,形如:
+     * 解析Gradle配置里的inkerLint依赖,那些是inker plugin的自定义规则库依赖,形如:
      * build.gradle :
      * configurations {
      *     inkerLint

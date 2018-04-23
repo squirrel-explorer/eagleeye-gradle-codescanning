@@ -31,7 +31,7 @@ class LintExtension extends BaseExtension {
     }
 
     void setLintConfig(String lintConfig) {
-        if (null != lintConfig && lintConfig.length() > 0) {
+        if (lintConfig != null && !lintConfig.isEmpty()) {
             if (lintConfig.startsWith('http://') ||
                 lintConfig.startsWith('https://') ||
                 lintConfig.startsWith('ftp://')) {
@@ -71,13 +71,13 @@ class LintExtension extends BaseExtension {
     }
 
     void setCustomRule(String customRule) {
-        if (null != customRule && customRule.length() > 0) {
+        if (customRule != null && !customRule.isEmpty()) {
             String downloadDir = project.projectDir.absolutePath + '/lint-jars'
             if (customRule.startsWith('http://') ||
                     customRule.startsWith('https://') ||
                     customRule.startsWith('ftp://')) {
                 File customRuleFile = FileUtils.downloadFile(customRule, downloadDir)
-                if (null != customRuleFile) {
+                if (customRuleFile != null) {
                     this.customRules.add(customRuleFile.absolutePath)
                 }
             } else {

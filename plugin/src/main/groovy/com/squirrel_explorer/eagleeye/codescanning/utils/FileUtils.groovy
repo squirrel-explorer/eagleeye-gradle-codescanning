@@ -16,7 +16,7 @@ public class FileUtils {
             dstFileName = localDir + File.separator + dstFileName
             File dstFile = FileUtils.safeCreateFile(dstFileName)
 
-            if (null != dstFile) {
+            if (dstFile != null) {
                 InputStream input = null
                 FileOutputStream output = null
                 try {
@@ -36,11 +36,11 @@ public class FileUtils {
                 } catch (Exception e) {
                     // TODO
                 } finally {
-                    if (null != output) {
+                    if (output != null) {
                         output.close()
                         output = null
                     }
-                    if (null != input) {
+                    if (input != null) {
                         input.close()
                         input = null
                     }
@@ -52,18 +52,18 @@ public class FileUtils {
     }
 
     public static void checkIntegrity(File file) {
-        if (null == file) {
+        if (file == null) {
             return
         }
 
         File parent = file.getParentFile()
-        if (null != parent && !parent.exists()) {
+        if (parent != null && !parent.exists()) {
             parent.mkdirs()
         }
     }
 
     public static File safeCreateFile(String filename) {
-        if (null == filename || filename.isEmpty()) {
+        if (filename == null || filename.isEmpty()) {
             return null
         }
 
